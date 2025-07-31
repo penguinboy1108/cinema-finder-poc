@@ -3,6 +3,7 @@ import {
   // Rectangle,
   TileLayer,
   Marker,
+  Popup,
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -11,6 +12,7 @@ import useEventListener from "@use-it/event-listener";
 import { useSnackbar } from "notistack";
 import { totalBounds } from "../../data/bounds";
 import MapContext from "./context";
+import { useState } from "react";
 // Have to override these url's so that it finds the bundles the correct images
 Icon.Default.imagePath =
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/";
@@ -18,14 +20,12 @@ Icon.Default.imagePath =
 const MapSnappingEventListener = () => {
   const { enqueueSnackbar } = useSnackbar();
   const map = useMap();
-  useEventListener("map.snapTo", ({ detail: { lat, lng } }) => {
-    // This hook sets up an event listener for the map.snapTo event which
-    // is currently dispatched be an onClick function in CinemaListItem
-    console.log("executing `map.snapTo` event with leaflet");
+  const [selected, setSelected] = useState(null);
 
+  useEventListener("map.snapTo", ({ detail: { lat, lng, cinema } }) => {
     try {
-      // [Docs](https://leafletjs.com/reference.html#map-flyto)
-      map.flyTo([lat, lng], 14, { duration: 0.5, easeLinearity: 1 });
+      map?.flyTo([lat, lng], 14, { duration: 0.5, easeLinearity: 1 });
+      setSelected({ lat, lng, cinema }); // ✅ 保存影院信息用于 Popup
     } catch (e) {
       console.error(e);
       enqueueSnackbar("Unexpected error while attempting map navigation", {
@@ -33,7 +33,17 @@ const MapSnappingEventListener = () => {
       });
     }
   });
-  return null;
+
+  return (
+    <>
+      {selected && (
+        <div
+          position={[selected.lat, selected.lng]}
+          eventHandlers={{ remove: () => setSelected(null) }}
+        ></div>
+      )}
+    </>
+  );
 };
 
 const convertBounds = ([w, s, e, n]) => [
@@ -43,8 +53,19 @@ const convertBounds = ([w, s, e, n]) => [
   [n, e],
 ];
 
-const LeafletMarker = ({ lat, lon }) => <Marker position={[lat, lon]} />;
-
+const LeafletMarker = ({ lat, lon, cinema }) => (
+  <Marker
+    position={[lat, lon]} // Leaflet 顺序是 [lat, lng]
+    eventHandlers={{
+      click: () =>
+        window.dispatchEvent(
+          new CustomEvent("map.snapTo", {
+            detail: { lat, lng: lon, cinema }, // 事件里统一用 {lat,lng}
+          })
+        ),
+    }}
+  />
+);
 const LeafletMap = ({ children }) => {
   console.log("render Leaflet map");
   return (

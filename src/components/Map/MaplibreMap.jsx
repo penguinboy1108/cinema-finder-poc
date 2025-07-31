@@ -1,17 +1,33 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import Map, { Marker, useMap } from "react-map-gl";
+import Map, { Marker, useMap, Popup } from "react-map-gl";
 // eslint-disable-next-line import/no-webpack-loader-syntax
 import maplibregl from "maplibre-gl";
 import useEventListener from "@use-it/event-listener";
 import { useSnackbar } from "notistack";
 import { MapContextProvider } from "./context";
 import { totalBounds } from "../../data/bounds";
+import { useState } from "react";
 import maplibreglWorker from "maplibre-gl/dist/maplibre-gl-csp-worker";
+import { DivIcon } from "leaflet";
 maplibregl.workerClass = maplibreglWorker;
 
-const MaplibreMarker = ({ lat, lon }) => (
-  <Marker longitude={lon} latitude={lat} anchor="bottom" />
-);
+const MaplibreMarker = ({ lat, lon, cinema }) => {
+  const handleClick = () => {
+    // console.log(lat, lon, cinema);
+    window.dispatchEvent(
+      new CustomEvent("map.snapTo", { detail: { lat, lng: lon, cinema } })
+    );
+  };
+
+  return (
+    <Marker
+      longitude={lon}
+      latitude={lat}
+      anchor="bottom"
+      onClick={handleClick}
+    />
+  );
+};
 
 const convertBounds = ([w, s, e, n]) => [
   // MapLibre expects bounds to be [LngLatBoundsLike](https://maplibre.org/maplibre-gl-js-docs/api/geography/#lnglatboundslike)
@@ -21,31 +37,31 @@ const convertBounds = ([w, s, e, n]) => [
 ];
 
 const MapSnappingEventListener = () => {
-  const { enqueueSnackbar } = useSnackbar();
   const map = useMap().current;
-  useEventListener("map.snapTo", ({ detail: { lat, lng } }) => {
-    // This hook sets up an event listener for the map.snapTo event which
-    // is currently dispatched be an onClick function in CinemaListItem
-    console.log("executing `map.snapTo` event with maplibre");
+  const [selected, setSelected] = useState(null);
 
-    try {
-      // [Docs](https://maplibre.org/maplibre-gl-js-docs/api/map/#map#flyto)
-      map.flyTo({
-        center: [lat, lng],
-        zoom: 14,
-      });
-    } catch (e) {
-      console.error(e);
-      enqueueSnackbar("Unexpected error while attempting map navigation", {
-        variant: "error",
-      });
-    }
+  useEventListener("map.snapTo", ({ detail: { lat, lng, cinema } }) => {
+    map?.flyTo({ center: [lng, lat], zoom: 14 }); // 顺序 [lng, lat]
+    setSelected({ lat, lng, cinema });
+    // console.log(cinema);
   });
-  return null;
+
+  return (
+    <>
+      {selected && (
+        <div
+          longitude={selected.lng}
+          latitude={selected.lat}
+          onClose={() => setSelected(null)}
+        ></div>
+      )}
+    </>
+  );
 };
 
 const MaplibreMap = ({ children }) => {
   console.log("render Maplibre map");
+
   const bounds = convertBounds(totalBounds); // => [[w, s], [e, n]]
   return (
     <Map
