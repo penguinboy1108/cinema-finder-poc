@@ -3,7 +3,7 @@ import {
   // Rectangle,
   TileLayer,
   Marker,
-  useMap
+  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Icon } from "leaflet";
@@ -29,7 +29,7 @@ const MapSnappingEventListener = () => {
     } catch (e) {
       console.error(e);
       enqueueSnackbar("Unexpected error while attempting map navigation", {
-        variant: "error"
+        variant: "error",
       });
     }
   });
@@ -40,7 +40,7 @@ const convertBounds = ([w, s, e, n]) => [
   // Leaflet expects boundings boxes to be an array consisting of the corners of the box.
   // These corners are [lat, lon] [LatLng docs](https://leafletjs.com/reference.html#latlng)
   [s, w],
-  [n, e]
+  [n, e],
 ];
 
 const LeafletMarker = ({ lat, lon }) => <Marker position={[lat, lon]} />;
@@ -51,25 +51,28 @@ const LeafletMap = ({ children }) => {
     <>
       <MapContainer
         bounds={convertBounds(totalBounds)}
+        maxBounds={convertBounds(totalBounds)}
+        maxBoundsViscosity={1.0}
         style={{ height: "100%", backgroundColor: "#99b3cc" }}
         zoomSnap={0.5}
         zoomDelta={0.5}
+        minZoom={2}
+        maxZoom={18}
+        whenCreated={(map) => {
+          // 切换后保证尺寸正确
+          setTimeout(() => map.invalidateSize(), 0);
+        }}
       >
         <MapSnappingEventListener />
+
         <TileLayer
-          attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.{ext}"
-          subdomains="abcd"
-          minZoom={0}
-          maxZoom={18}
-          ext="png"
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
         <MapContext.Provider value={{ Marker: LeafletMarker }}>
           {children}
         </MapContext.Provider>
-        {/* {[...allCountryBounds, totalBounds].map((bounds, idx) => (
-          <Rectangle bounds={convertBounds(bounds)} key={idx} />
-        ))} */}
       </MapContainer>
     </>
   );
